@@ -1,7 +1,10 @@
 import tempfile
 import shutil
 import os
+import sys
 from unittest import TestCase, mock
+
+sys.path.append('./../../')
 from utils.voc.converter import process_cvat_xml
 
 XML_ANNOTATION_EXAMPLE = """<?xml version="1.0" encoding="utf-8"?>
