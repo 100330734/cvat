@@ -286,7 +286,31 @@ class Config {
                 value: 'esc',
                 view_value: "Esc",
                 description: "cancel active mode"
-            }
+            },
+
+            clockwise_rotation: {
+                value: 'ctrl+r',
+                view_value: 'Ctrl + R',
+                description: 'clockwise image rotation'
+            },
+
+            counter_clockwise_rotation: {
+                value: 'ctrl+shift+r',
+                view_value: 'Ctrl + Shift + R',
+                description: 'counter clockwise image rotation'
+            },
+
+            next_shape_type: {
+                value: ['alt+.'],
+                view_value: 'Alt + >',
+                description: 'switch next default shape type'
+            },
+
+            prev_shape_type: {
+                value: ['alt+,'],
+                view_value: 'Alt + <',
+                description: 'switch previous default shape type'
+            },
         };
 
         if (window.cvat && window.cvat.job && window.cvat.job.z_order) {

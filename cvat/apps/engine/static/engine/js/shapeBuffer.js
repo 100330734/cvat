@@ -5,6 +5,19 @@
  */
 
 /* exported ShapeBufferModel ShapeBufferController ShapeBufferView */
+
+/* global
+    AREA_TRESHOLD:false
+    userConfirm:false
+    Listener:false
+    Logger:false
+    Mousetrap:false
+    POINT_RADIUS:false
+    PolyShapeModel:false
+    STROKE_WIDTH:false
+    SVG:false
+*/
+
 "use strict";
 
 class ShapeBufferModel extends Listener  {
@@ -144,8 +157,9 @@ class ShapeBufferModel extends Listener  {
             window.cvat.addAction('Paste Object', () => {
                 model.removed = true;
                 model.unsubscribe(this._collection);
-            }, () => {
+            }, (self) => {
                 model.subscribe(this._collection);
+                model.id = self.generateId();
                 model.removed = false;
             }, window.cvat.player.frames.current);
             // End of undo/redo code
@@ -234,8 +248,9 @@ class ShapeBufferModel extends Listener  {
                             object.removed = true;
                             object.unsubscribe(this._collection);
                         }
-                    }, () => {
+                    }, (self) => {
                         for (let object of addedObjects) {
+                            object.id = self.generateId();
                             object.removed = false;
                             object.subscribe(this._collection);
                         }
@@ -281,6 +296,7 @@ class ShapeBufferController {
             let propagateDialogShowed = false;
             let propagateHandler = Logger.shortkeyLogDecorator(function() {
                 if (!propagateDialogShowed) {
+                    blurAllElements();
                     if (this._model.copyToBuffer()) {
                         let curFrame = window.cvat.player.frames.current;
                         let startFrame = window.cvat.player.frames.start;
@@ -299,7 +315,7 @@ class ShapeBufferController {
                         message += 'Are you sure?';
 
                         propagateDialogShowed = true;
-                        confirm(message, () => {
+                        userConfirm(message, () => {
                             this._model.propagateToFrames();
                             propagateDialogShowed = false;
                         }, () => propagateDialogShowed = false);

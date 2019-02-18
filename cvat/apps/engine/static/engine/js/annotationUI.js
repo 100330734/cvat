@@ -5,6 +5,50 @@
  */
 
 /* exported callAnnotationUI blurAllElements drawBoxSize copyToClipboard */
+
+/* global
+    AAMController:false
+    AAMModel:false
+    AAMView:false
+    AnnotationParser:false
+    Config:false
+    userConfirm:false
+    CoordinateTranslator:false
+    dumpAnnotationRequest:false
+    HistoryController:false
+    HistoryModel:false
+    HistoryView:false
+    IncrementIdGenerator:false,
+    Logger:false
+    Mousetrap:false
+    PlayerController:false
+    PlayerModel:false
+    PlayerView:false
+    PolyshapeEditorController:false
+    PolyshapeEditorModel:false
+    PolyshapeEditorView:false
+    PolyShapeView:false
+    saveJobRequest:false
+    serverRequest:false
+    ShapeBufferController:false
+    ShapeBufferModel:false
+    ShapeBufferView:false
+    ShapeCollectionController:false
+    ShapeCollectionModel:false
+    ShapeCollectionView:false
+    ShapeCreatorController:false
+    ShapeCreatorModel:false
+    ShapeCreatorView:false
+    ShapeGrouperController:false
+    ShapeGrouperModel:false
+    ShapeGrouperView:false
+    ShapeMergerController:false
+    ShapeMergerModel:false
+    ShapeMergerView:false
+    showMessage:false
+    showOverlay:false
+*/
+
 "use strict";
 
 function callAnnotationUI(jid) {
@@ -115,7 +159,12 @@ function buildAnnotationUI(job, shapeData, loadJobEvent) {
     window.cvat.data = {
         get: () => shapeCollectionModel.exportAll(),
         set: (data) => {
-            shapeCollectionModel.empty();
+            for (let type in data) {
+                for (let shape of data[type]) {
+                    shape.id = idGenerator.next();
+                }
+            }
+
             shapeCollectionModel.import(data, false);
             shapeCollectionModel.update();
         },
@@ -175,7 +224,7 @@ function buildAnnotationUI(job, shapeData, loadJobEvent) {
         }), job);
     new PlayerView(playerModel, playerController, job);
 
-    let historyModel = new HistoryModel(playerModel);
+    let historyModel = new HistoryModel(playerModel, idGenerator);
     let historyController = new HistoryController(historyModel);
     new HistoryView(historyController, historyModel);
 
@@ -204,7 +253,7 @@ function buildAnnotationUI(job, shapeData, loadJobEvent) {
 
     $(window).on('click', function(event) {
         Logger.updateUserActivityTimer();
-        if (event.target.classList.contains('modal')) {
+        if (event.target.classList.contains('modal') && !event.target.classList.contains('force-modal')) {
             event.target.classList.add('hidden');
         }
     });
@@ -560,7 +609,7 @@ function setupMenu(job, shapeCollectionModel, annotationParser, aamModel, player
 
     $('#uploadAnnotationButton').on('click', () => {
         hide();
-        confirm('Current annotation will be removed from the client. Continue?',
+        userConfirm('Current annotation will be removed from the client. Continue?',
             () => {
                 uploadAnnotation(shapeCollectionModel, historyModel, annotationParser, $('#uploadAnnotationButton'));
             }
@@ -570,7 +619,7 @@ function setupMenu(job, shapeCollectionModel, annotationParser, aamModel, player
     $('#removeAnnotationButton').on('click', () => {
         if (!window.cvat.mode) {
             hide();
-            confirm('Do you want to remove all annotations? The action cannot be undone!',
+            userConfirm('Do you want to remove all annotations? The action cannot be undone!',
                 () => {
                     historyModel.empty();
                     shapeCollectionModel.empty();
@@ -609,13 +658,11 @@ function setupMenu(job, shapeCollectionModel, annotationParser, aamModel, player
 }
 
 
-function drawBoxSize(scene, box) {
-    let scale = window.cvat.player.geometry.scale;
-    let width = +box.getAttribute('width');
-    let height = +box.getAttribute('height');
-    let text = `${width.toFixed(1)}x${height.toFixed(1)}`;
+function drawBoxSize(boxScene, textScene, box) {
+    let clientBox = window.cvat.translate.box.canvasToClient(boxScene.node, box);
+    let text = `${box.width.toFixed(1)}x${box.height.toFixed(1)}`;
     let obj = this && this.textUI && this.rm ? this : {
-        textUI: scene.text('').font({
+        textUI: textScene.text('').font({
             weight: 'bolder'
         }).fill('white'),
 
@@ -626,16 +673,11 @@ function drawBoxSize(scene, box) {
         }
     };
 
+    let textPoint = window.cvat.translate.point.clientToCanvas(textScene.node, clientBox.x, clientBox.y);
+
     obj.textUI.clear().plain(text);
-
-    obj.textUI.font({
-        size: 20 / scale,
-    }).style({
-        stroke: 'black',
-        'stroke-width': 1 / scale
-    });
-
-    obj.textUI.move(+box.getAttribute('x'), +box.getAttribute('y'));
+    obj.textUI.addClass("shapeText");
+    obj.textUI.move(textPoint.x, textPoint.y);
 
     return obj;
 }

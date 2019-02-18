@@ -5,6 +5,28 @@
  */
 
 /* exported ShapeCollectionModel ShapeCollectionController ShapeCollectionView */
+
+/* global
+    buildShapeController:false
+    buildShapeModel:false
+    buildShapeView:false
+    copyToClipboard:false
+    createExportContainer:false
+    ExportType:false
+    FilterController:false
+    FilterModel:false
+    FilterView:false
+    getExportTargetContainer:false
+    Listener:false
+    Logger:false
+    Mousetrap:false
+    POINT_RADIUS:false
+    SELECT_POINT_STROKE_WIDTH:false
+    ShapeSplitter:false
+    STROKE_WIDTH:false
+    SVG:false
+*/
+
 "use strict";
 
 class ShapeCollectionModel extends Listener {
@@ -792,14 +814,16 @@ class ShapeCollectionModel extends Listener {
                 // Undo/redo code
                 let newShapes = this._shapes.slice(-list.length);
                 let originalShape = this._activeShape;
-                window.cvat.addAction('Split Object', () => {
+                window.cvat.addAction('Split Object', (self) => {
                     for (let shape of newShapes) {
                         shape.removed = true;
                         shape.unsubscribe(this);
                     }
+                    originalShape.id = self.generateId();
                     originalShape.removed = false;
-                }, () => {
+                }, (self) => {
                     for (let shape of newShapes) {
+                        shape.id = self.generateId();
                         shape.removed = false;
                         shape.subscribe(this);
                     }
@@ -941,6 +965,30 @@ class ShapeCollectionController {
                 }
             }.bind(this));
 
+            let nextShapeType = Logger.shortkeyLogDecorator(function(e) {
+                if (window.cvat.mode === null) {
+                    let next = $('#shapeTypeSelector option:selected').next();
+                    if (!next.length) {
+                        next = $('#shapeTypeSelector option').first();
+                    }
+
+                    next.prop('selected', true);
+                    next.trigger('change');
+                }
+            }.bind(this));
+
+            let prevShapeType = Logger.shortkeyLogDecorator(function(e) {
+                if (window.cvat.mode === null) {
+                    let prev = $('#shapeTypeSelector option:selected').prev();
+                    if (!prev.length) {
+                        prev = $('#shapeTypeSelector option').last();
+                    }
+
+                    prev.prop('selected', true);
+                    prev.trigger('change');
+                }
+            }.bind(this));
+
             let shortkeys = window.cvat.config.shortkeys;
             Mousetrap.bind(shortkeys["switch_lock_property"].value, switchLockHandler.bind(this), 'keydown');
             Mousetrap.bind(shortkeys["switch_all_lock_property"].value, switchAllLockHandler.bind(this), 'keydown');
@@ -953,6 +1001,9 @@ class ShapeCollectionController {
             Mousetrap.bind(shortkeys["change_shape_label"].value, switchLabelHandler.bind(this), 'keydown');
             Mousetrap.bind(shortkeys["delete_shape"].value, removeActiveHandler.bind(this), 'keydown');
             Mousetrap.bind(shortkeys["change_shape_color"].value, changeShapeColorHandler.bind(this), 'keydown');
+            Mousetrap.bind(shortkeys['next_shape_type'].value, nextShapeType.bind(this), 'keydown');
+            Mousetrap.bind(shortkeys['prev_shape_type'].value, prevShapeType.bind(this), 'keydown');
+
 
             if (window.cvat.job.z_order) {
                 Mousetrap.bind(shortkeys["inc_z"].value, incZHandler.bind(this), 'keydown');
@@ -1101,6 +1152,7 @@ class ShapeCollectionView {
         this._controller = collectionController;
         this._frameBackground = $('#frameBackground');
         this._frameContent = SVG.adopt($('#frameContent')[0]);
+        this._textContent = SVG.adopt($('#frameText')[0]);
         this._UIContent = $('#uiContent');
         this._labelsContent = $('#labelsContent');
         this._showAllInterpolationBox = $('#showAllInterBox');
@@ -1119,6 +1171,7 @@ class ShapeCollectionView {
 
         this._activeShapeUI = null;
         this._scale = 1;
+        this._rotation = 0;
         this._colorSettings = {
             "fill-opacity": 0
         };
@@ -1473,7 +1526,7 @@ class ShapeCollectionView {
         this._updateLabelUIs();
 
         function drawView(shape, model) {
-            let view = buildShapeView(model, buildShapeController(model), this._frameContent, this._UIContent);
+            let view = buildShapeView(model, buildShapeController(model), this._frameContent, this._UIContent, this._textContent);
             view.draw(shape.interpolation);
             view.updateColorSettings(this._colorSettings);
             model.subscribe(view);
@@ -1487,7 +1540,13 @@ class ShapeCollectionView {
         if (!player.ready())  this._frameContent.addClass('hidden');
         else this._frameContent.removeClass('hidden');
 
-        if (this._scale === player.geometry.scale) return;
+        let geometry = player.geometry;
+        if (this._rotation != geometry.rotation) {
+            this._rotation = geometry.rotation;
+            this._controller.resetActive();
+        }
+
+        if (this._scale === geometry.scale) return;
 
         this._scale = player.geometry.scale;
         let scaledR = POINT_RADIUS / this._scale;

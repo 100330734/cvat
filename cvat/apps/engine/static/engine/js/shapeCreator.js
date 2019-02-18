@@ -5,6 +5,19 @@
  */
 
 /* exported ShapeCreatorModel ShapeCreatorController ShapeCreatorView */
+
+/* global
+    AREA_TRESHOLD:false
+    drawBoxSize:false
+    Listener:false
+    Logger:false
+    Mousetrap:false
+    PolyShapeModel:false
+    showMessage:false
+    STROKE_WIDTH:false
+    SVG:false
+*/
+
 "use strict";
 
 class ShapeCreatorModel extends Listener {
@@ -57,8 +70,9 @@ class ShapeCreatorModel extends Listener {
         window.cvat.addAction('Draw Object', () => {
             model.removed = true;
             model.unsubscribe(this._shapeCollection);
-        }, () => {
+        }, (self) => {
             model.subscribe(this._shapeCollection);
+            model.id = self.generateId();
             model.removed = false;
         }, window.cvat.player.frames.current);
         // End of undo/redo code
@@ -171,6 +185,7 @@ class ShapeCreatorView {
         this._typeSelector = $('#shapeTypeSelector');
         this._polyShapeSizeInput = $('#polyShapeSize');
         this._frameContent = SVG.adopt($('#frameContent')[0]);
+        this._frameText = SVG.adopt($("#frameText")[0]);
         this._playerFrame = $('#playerFrame');
         this._createButton.on('click', () => this._controller.switchCreateMode(false));
         this._drawInstance = null;
@@ -393,7 +408,7 @@ class ShapeCreatorView {
 
                 this._controller.switchCreateMode(true);
             }.bind(this)).on('drawupdate', (e) => {
-                sizeUI = drawBoxSize.call(sizeUI, this._frameContent, e.target);
+                sizeUI = drawBoxSize.call(sizeUI, this._frameContent, this._frameText, e.target.getBBox());
             }).on('drawcancel', () => {
                 if (sizeUI) {
                     sizeUI.rm();

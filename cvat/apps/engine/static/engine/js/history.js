@@ -1,8 +1,20 @@
+/*
+ * Copyright (C) 2018 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 /* exported HistoryModel HistoryController HistoryView */
+
+/* global
+    Listener:false
+    Logger:false
+    Mousetrap:false
+*/
 "use strict";
 
 class HistoryModel extends Listener {
-    constructor(playerModel) {
+    constructor(playerModel, idGenerator) {
         super('onHistoryUpdate', () => this );
 
         this._deep = 128;
@@ -11,8 +23,13 @@ class HistoryModel extends Listener {
         this._redo_stack = [];
         this._locked = false;
         this._player = playerModel;
+        this._idGenerator = idGenerator;
 
         window.cvat.addAction = (name, undo, redo, frame) => this.addAction(name, undo, redo, frame);
+    }
+
+    generateId() {
+        return this._idGenerator.next();
     }
 
     undo() {
@@ -30,7 +47,7 @@ class HistoryModel extends Listener {
                     this._player.shift(undo.frame, true);
                 }
                 this._locked = true;
-                undo.undo();
+                undo.undo(this);
             }
             catch(err) {
                 this.notify();
@@ -61,7 +78,7 @@ class HistoryModel extends Listener {
                     this._player.shift(redo.frame, true);
                 }
                 this._locked = true;
-                redo.redo();
+                redo.redo(this);
             }
             catch(err) {
                 this.notify();
