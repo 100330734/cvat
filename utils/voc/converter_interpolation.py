@@ -22,6 +22,9 @@ import glog as log
 from lxml import etree
 from pascal_voc_writer import Writer
 import cv2
+from xml.dom import minidom
+from xml.dom.minidom import getDOMImplementation
+import numpy as np
 
 def parse_args():
     """Parse arguments of command line"""
@@ -108,27 +111,31 @@ def process_cvat_xml(xml_file, output_dir, video):
             
             
    #%% Generate Data set Images
-    video_absPath = os.path.abspath(video)
+#    video_absPath = os.path.abspath(video)
     anno_dir = os.path.join(os.path.expanduser(output_dir), basename)
-    os.makedirs(anno_dir, exist_ok=True)
-    
-    generate_dataset(video_absPath, anno_dir, frames )
+#    os.makedirs(anno_dir, exist_ok=True)
+#    
+#    generate_dataset(video_absPath, anno_dir, frames )
 
     #%% Spit out a list of each object for each frame
     
     width = int(cvat_xml.find('.//original_size/width').text)
     height  = int(cvat_xml.find('.//original_size/height').text)
     
-    for frameid in sorted(frames.keys()):
+    for i, frameid in enumerate(sorted(frames.keys())):
         print( frameid )
 
+        # Track id for sequence        
+        cur_frame = frameid
+        if i == 0:
+            prev_frame = frameid + 1 # different for first sequence
+        
+        if cur_frame - prev_frame != 1:
+            seqid = np.random.randint(10e5)
+        prev_frame = cur_frame
+        
+        
         image_name = "%s_%05d.jpg" % (basename, frameid)
-#        original_size = cvat_xml.findall('.//original_size')[0]
-#        elem_width = original_size.getchildren()[0]
-#        width = int(elem_width.text)
-#        elem_height = original_size.getchildren()[1]
-#        height = int(elem_height.text)
-
         image_path = os.path.join(anno_dir, image_name)
         if not os.path.exists(image_path):
             log.warn('{} image cannot be found. Is `{}` image directory correct?'.
@@ -140,7 +147,7 @@ def process_cvat_xml(xml_file, output_dir, video):
         frame = frames[frameid]
 
         objids = sorted(frame.keys()) # track ids
-
+        
         for objid in objids:
 
             box = frame[objid]
@@ -154,11 +161,25 @@ def process_cvat_xml(xml_file, output_dir, video):
             ymax = float(box.get('ybr'))
 
             writer.addObject(label, xmin, ymin, xmax, ymax)
+            
 
         anno_name = os.path.basename(os.path.splitext(image_name)[0] + '.xml')
 #        anno_dir = os.path.dirname(os.path.join(output_dir, image_name))
         os.makedirs(anno_dir, exist_ok=True)
-        writer.save(os.path.join(anno_dir, anno_name))
+        out_name = os.path.join(anno_dir, anno_name)
+        writer.save(out_name)
+        
+        tree = etree.parse(out_name)
+        
+        # Add sequence element to the root and insert after segmented
+        
+        seq_node = etree.Element('sequence')
+        seq_node.text = str(seqid)
+        
+        tree.getroot().insert(6, seq_node)
+        indent(tree.getroot())
+        tree.write(out_name)
+    
         
     return frames
 
@@ -204,6 +225,25 @@ def generate_dataset(video_absPath, anno_dir, frames):
 #    cap.release()
 #    print('Dataset generated at ' + anno_dir)
 
+  
+def indent(elem, level=0):
+    """
+    For beautiful printing of the xml
+    """
+    i = "\n" + level*"  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+            
             
 def main():
     args = parse_args()
